@@ -1,0 +1,75 @@
+#!/bin/bash
+
+#Programul este tinut intr'o bucla continua la care se evalueaza ora pentru a
+#stabili faptul ca programul ruleaza in intervalul orar stabilit
+
+# ---------- START ON BOOT --------- #
+
+#chmod +x /home/keepalive
+#cd /etc/rc.d/
+#nano rc.local
+#Adaugam la finalul fisierului:
+#/home/keepalive.sh
+
+while [ 1 ];
+do
+HOUR="$(date +%H)"
+if [ $HOUR -ge 9 -a $HOUR -lt 17 ]; then
+
+# In faza de teste, se foloseste sleep 2m la sfarsitul buclei, dar in
+# modul normal de functionare sleep va fi la inceputul buclei, pentru  ca 
+# httpd sa aiba timp sa porneasca in caz de un delay neasteptat
+
+PORT="$(lsof -i :80 | awk '{printf "%s\n",$1)' | grep httpd | wc -w)"
+INSTANCES="$(pidof httpd | wc -w)"
+COUNTER=0
+echo "$PORT"
+echo "$INSTANCES"
+
+case "${INSTANCES}" in
+0) echo "NOT RUNNING: $(date)"
+	echo "APACHE IS NOT RUNNING !" | mail -s "APACHE NOT RUNNING" grecu.alinstefan@gmail.com
+	while [ $COUNTER -lt 5 ]
+	do
+		echo "ATTEMPTING TO START SERVICE"
+		systemctl start httpd
+		INSTANCES="$(pidof httpd | wc -w)"
+			if [ "$INSTANCES" ]; then
+				COUNTER=0
+				continue
+			else
+				COUNTER=$((COUNTER+1))
+			fi
+	done
+	if [ $COUNTER == 5 ]; then
+		echo "SENDING EMAIL TO ALTERNATE ADDRESS"
+		echo "APACHE IS NOT RUNNING" | mail -s "APACHE NOT RUNNING" alinstefan94@hotmail.com
+	fi
+	;;
+
+*) echo "RUNNING: $(date)"
+	if [ "$INSTANCES" == "$PORT" ]; then
+		echo "Port :80 is listened by httpd"
+	else
+		echo "CHECK FOR FAULTS"
+	fi
+		ret=$(curl -I -s "devacademy.ro" -o /dev/null -w "%{http_code}\n")
+		if [ ret==200 ]; then
+			echo "URL STATUS 200"
+		else
+			echo "URL STATUS $ret"
+		fi
+	content=$(wget 192.168.43.128 -q -O -)
+	if [ "$content" ]; then
+		echo "PAGE HAS CONTENT"
+	else
+		echo "PAGE IS EMPTY"
+	fi
+	;;
+	esac
+	else
+		echo "SCRIPT IS NOT IN FUNCTION. WAITING TO RESTART. SCHEDULE 8:00AM - 5:00PM"
+		sleep 5m
+		fi
+		sleep 5m
+		done
